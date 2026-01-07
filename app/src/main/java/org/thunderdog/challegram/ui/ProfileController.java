@@ -2427,6 +2427,9 @@ public class ProfileController extends ViewController<ProfileController.Args> im
   private String personalChannelTime;
   private int personalChannelMembers;
 
+  private TextWrapper profileNoteWrapper;
+  private TdApi.FormattedText currentProfileNote;
+
   private static int getTextWidth (int width) {
     return Math.max(0, width - Screen.dp(73f) - Screen.dp(17f));
   }
@@ -2621,13 +2624,6 @@ public class ProfileController extends ViewController<ProfileController.Args> im
         items.add(newDescriptionItem());
         addedCount++;
       }
-      if (userFull.firstProfileAudio != null) {
-        if (addedCount > 0) {
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR));
-        }
-        items.add(newProfileAudioItem());
-        addedCount++;
-      }
       if (!Td.isEmpty(userFull.note)) {
         if (addedCount > 0) {
           items.add(new ListItem(ListItem.TYPE_SEPARATOR));
@@ -2717,7 +2713,6 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     checkPersonalChannel();
     checkBirthdate();
     checkDescription();
-    checkProfileAudio();
     checkProfileNote();
     checkGroupsInCommon();
     /*if (userFull.commonChatCount > 0) {
