@@ -19,6 +19,12 @@ plugins {
 
 val config = tgxConfig.config.get()
 val generateBaselineProfile = tgxConfig.generateBaselineProfile.get()
+val useLegacyNdk = tgxConfig.useLegacyNdk.get()
+val ndkMinSdkVersion = if (useLegacyNdk) {
+  config.build.legacyNdkVersion
+} else {
+  config.build.primaryNdkVersion
+}.ndkVersionToMinSdk()
 
 val generateThemes = tasks.register<GenerateThemesTask>("generateThemes") {
   group = "Setup"
@@ -474,7 +480,9 @@ android {
   }
 
   flavorDimensions += arrayOf("SDK", "ABI")
-  androidComponents.disableRudimentaryVariants()
+  androidComponents.disableRudimentaryVariants { sdkVariant, abiVariant ->
+    maxOf(sdkVariant.minSdk, abiVariant.minSdk) >= ndkMinSdkVersion
+  }
   productFlavors {
     Sdk.VARIANTS.forEach { (sdkIndex, variant) ->
       create(variant.flavor) {
@@ -488,12 +496,11 @@ android {
           buildConfigBool("${subVariant.flavor.uppercase()}_FLAVOR", sdkIndex == subSdkIndex)
         }
 
-        val actualMinSdk = if (config.isHuaweiBuild) {
-          maxOf(variant.minSdk, Config.MIN_SDK_VERSION_HUAWEI)
-        } else {
-          variant.minSdk
-        }
-        val selectedMinSdk = maxOf(variant.minSdk, actualMinSdk)
+        val selectedMinSdk = maxOf(
+          variant.minSdk,
+          Config.MIN_SDK_VERSION_HUAWEI.takeIf { config.isHuaweiBuild } ?: 0,
+          ndkMinSdkVersion
+        )
         minSdk = selectedMinSdk
         // NDK by SDK flavor (not ABI): the legacy line needs the legacy NDK on
         // every ABI (NDK 27 dropped API<21 wrappers), while API 21+ flavors can
