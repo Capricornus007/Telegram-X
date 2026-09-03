@@ -2782,6 +2782,7 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
     default boolean onReferenceClick (View view, String name, String referenceAnchorName, @NonNull TdlibUi.UrlOpenParameters openParameters) { return false; }
     // Long press on text (not on entities) - for quote selection
     default boolean onLongPress (View view, Text text) { return false; }
+    default boolean onButtonClick (View view, TdApi.InlineButton button, @NonNull TdlibUi.UrlOpenParameters openParameters) { return false; }
   }
 
   public boolean highlightPart (int index, boolean onlyClickable) {

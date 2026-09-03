@@ -20,11 +20,12 @@ plugins {
 val config = tgxConfig.config.get()
 val generateBaselineProfile = tgxConfig.generateBaselineProfile.get()
 val useLegacyNdk = tgxConfig.useLegacyNdk.get()
-val ndkMinSdkVersion = if (useLegacyNdk) {
+val appliedNdkVersion = if (useLegacyNdk) {
   config.build.legacyNdkVersion
 } else {
   config.build.primaryNdkVersion
-}.ndkVersionToMinSdk()
+}
+val ndkMinSdkVersion = appliedNdkVersion.ndkVersionToMinSdk()
 
 val generateThemes = tasks.register<GenerateThemesTask>("generateThemes") {
   group = "Setup"
@@ -319,7 +320,7 @@ android {
     resValue("string", "content_authority", "${config.applicationId}.sync.provider")
 
     buildConfigString("PROJECT_NAME", config.applicationName)
-    buildConfigBool("SHARED_STL", Config.SHARED_STL)
+    buildConfigBool("SHARED_STL", ndkVersion.ndkVersionMajor() >= 27)
     buildConfigString("SAFETYNET_API_KEY", config.safetyNetToken)
 
     buildConfigString("DOWNLOAD_URL", config.appDownloadUrl)
@@ -355,8 +356,8 @@ android {
     // Library versions in BuildConfig.java
 
     var tdlibVersion = ""
-    val tdlibCommit = File(project.rootDir.absoluteFile, "tdlib/version.txt").bufferedReader().readLine().take(7)
-    val tdlibVersionFile = File(project.rootDir.absoluteFile, "tdlib/source/td/CMakeLists.txt")
+    val tdlibCommit = requireFile(project.isolated.rootProject.projectDirectory.file("tdlib/version.txt").asFile).bufferedReader().readLine().take(7)
+    val tdlibVersionFile = requireFile(project.isolated.rootProject.projectDirectory.file("tdlib/source/td/CMakeLists.txt").asFile)
     tdlibVersionFile.bufferedReader().use { reader ->
       val regex = Regex("^project\\(TDLib VERSION (\\d+\\.\\d+\\.\\d+) LANGUAGES CXX C\\)$")
       while (true) {
@@ -533,7 +534,7 @@ android {
           targets += arrayOf("tgxjni", "tgcallsjni")
           arguments(
             "-DANDROID_PLATFORM=android-${selectedMinSdk}",
-            "-DANDROID_STL=${if (Config.SHARED_STL) "c++_shared" else "c++_static"}",
+            "-DANDROID_STL=${if (appliedNdkVersion.ndkVersionMajor() >= 27) "c++_shared" else "c++_static"}",
             "-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
             "-DCMAKE_SKIP_RPATH=ON",
             "-DCMAKE_C_VISIBILITY_PRESET=hidden",
@@ -873,21 +874,6 @@ android {
         project.afterEvaluate {
           project.tasks.findByName("assemble$variantName")?.finalizedBy(copyTask)
         }
-      }
-    }
-  }
-
-  // Packaging
-
-  packaging {
-    Config.SUPPORTED_ABI.forEach { abi ->
-      jniLibs.pickFirsts.let { set ->
-        if (Config.SHARED_STL) {
-          set.add("lib/$abi/libc++_shared.so")
-        }
-        set.add("tdlib/openssl/$abi/lib/libcryptox.so")
-        set.add("tdlib/openssl/$abi/lib/libsslx.so")
-        set.add("tdlib/src/main/libs/$abi/libtdjni.so")
       }
     }
   }
