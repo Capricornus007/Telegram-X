@@ -111,7 +111,7 @@ val fetchLocalizedStrings = tasks.register<FetchLocalizedStringsTask>("fetchLoca
   ))
 }
 
-val patchJetpackMediaTasks = Sdk.VARIANTS.values.filter { !it.isMarshmallow }.associateBy({ it.flavor }) { variant ->
+val patchJetpackMediaTasks = Sdk.VARIANTS.values.associateBy({ it.jetpackMediaFlavor }) { variant ->
   tasks.register<PatchJetpackMediaTask>(
     "patchJetpackMedia${variant.flavor.uppercaseFirstChar()}"
   ) {
@@ -119,11 +119,13 @@ val patchJetpackMediaTasks = Sdk.VARIANTS.values.filter { !it.isMarshmallow }.as
     description = "Copies patched androidx-media extensions for ${variant.flavor} flavor"
     inputDirs.from(Config.ANDROIDX_MEDIA_EXTENSIONS.map { extension ->
       layout.projectDirectory.dir(
-        "thirdparty/androidx-media/${variant.flavor}/libraries/$extension/src/main/jni"
+        "thirdparty/androidx-media/${
+          variant.jetpackMediaFlavor
+        }/libraries/$extension/src/main/jni"
       )
     })
     outputDir.set(layout.buildDirectory.dir(
-      "generated/tgx/androidx-media/${variant.flavor}"
+      "generated/tgx/androidx-media/${variant.jetpackMediaFlavor}"
     ))
   }
 }
@@ -480,7 +482,7 @@ android {
         isDefault = sdkIndex == Sdk.LATEST
 
         if (generateBaselineProfile && !variant.isLatest) {
-          matchingFallbacks += "latest"
+          matchingFallbacks += Sdk.VARIANTS[Sdk.LATEST]!!.flavor
         }
         Sdk.VARIANTS.forEach { (subSdkIndex, subVariant) ->
           buildConfigBool("${subVariant.flavor.uppercase()}_FLAVOR", sdkIndex == subSdkIndex)
@@ -536,12 +538,18 @@ android {
           )
 
           val dirs = mapOf(
-            "ANDROIDX_MEDIA_DIR" to layout.buildDirectory.dir("generated/tgx/androidx-media/${
-              (variant.takeIf { !it.isMarshmallow } ?: Sdk.VARIANTS[Sdk.LATEST]!!).flavor
-            }"),
-            "OPUS_DIR" to layout.buildDirectory.dir("generated/tgx/opus"),
-            "LIBVPX_DIR" to layout.buildDirectory.dir("generated/tgx/libvpx/${variant.flavor}"),
-            "FFMPEG_DIR" to layout.buildDirectory.dir("generated/tgx/ffmpeg/${variant.flavor}")
+            "ANDROIDX_MEDIA_DIR" to layout.buildDirectory.dir(
+              "generated/tgx/androidx-media/${variant.jetpackMediaFlavor}"
+            ),
+            "OPUS_DIR" to layout.buildDirectory.dir(
+              "generated/tgx/opus"
+            ),
+            "LIBVPX_DIR" to layout.buildDirectory.dir(
+              "generated/tgx/libvpx/${variant.flavor}"
+            ),
+            "FFMPEG_DIR" to layout.buildDirectory.dir(
+              "generated/tgx/ffmpeg/${variant.flavor}"
+            )
           ).map {
             "-D${it.key}=${it.value.get().asFile.absolutePath}"
           }.toTypedArray()
@@ -551,7 +559,7 @@ android {
         sourceSets.getByName(variant.flavor) {
           Config.ANDROIDX_MEDIA_EXTENSIONS.forEach { extension ->
             java.directories += "thirdparty/androidx-media/${
-              (variant.takeIf { !it.isMarshmallow } ?: Sdk.VARIANTS[Sdk.LATEST]!!).flavor
+              variant.jetpackMediaFlavor
             }/libraries/${extension}/src/main/java"
           }
           val extraFolders = findExtraFolders(variant)
@@ -581,7 +589,9 @@ android {
           "effect"
         ).plus(Config.ANDROIDX_MEDIA_EXTENSIONS).forEach { extension ->
           val proguardFile = project.layout.projectDirectory.file(
-            "thirdparty/androidx-media/${variant.flavor}/libraries/${extension}/proguard-rules.txt"
+            "thirdparty/androidx-media/${
+              variant.jetpackMediaFlavor
+            }/libraries/${extension}/proguard-rules.txt"
           ).asFile
           if (proguardFile.exists()) {
             extraProguardFileCount++
@@ -591,6 +601,8 @@ android {
 
         if (extraProguardFileCount > 0) {
           project.logger.lifecycle("[proguard]: Applied $extraProguardFileCount extra proguard files for \"${variant.flavor}\" flavor")
+        } else {
+          fatal("Unable to find any proguard files for ${variant.flavor} flavor")
         }
       }
     }
@@ -638,14 +650,10 @@ android {
       val (abi, abiVariant) = Abi.VARIANTS.entries.first { it.value.flavor == abiFlavor }
       val (sdk, sdkVariant) = Sdk.VARIANTS.entries.first { it.value.flavor == sdkFlavor }
 
-      val patchJetpackMediaTask = (
-        sdkVariant.takeIf {
-          !it.isMarshmallow
-        } ?: Sdk.VARIANTS[Sdk.LATEST]!!
-      ).let {
-        patchJetpackMediaTasks[it.flavor]!!
-      }
-      variant.lifecycleTasks.registerPreBuild(patchJetpackMediaTask, patchOpusTask)
+      variant.lifecycleTasks.registerPreBuild(
+        patchJetpackMediaTasks[sdkVariant.jetpackMediaFlavor]!!,
+        patchOpusTask
+      )
 
       abiVariant.filters.filter {
         sdkVariant.minSdk >= 21 || it == "armeabi-v7a" || it == "x86"
