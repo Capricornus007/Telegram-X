@@ -1057,10 +1057,12 @@ dependencies {
   sinceMarshmallowImplementation(libs.androidx.media.inspector.latest)
   // Play In-App Updates: https://developer.android.com/reference/com/google/android/play/core/release-notes-in_app_updates
   implementation(libs.google.play.app.update)
-  // Google Play Billing: https://developer.android.com/google/play/billing/release-notes
-  // BillingManager 是 fork 自有的 7.x 整合（tgx 上游无 billing），保持 7.1.1；
-  // per-flavor 9.x 重构需要先适配 BillingManager API（见提交说明）。
-  implementation(libs.google.play.billing)
+  // Play Billing: https://developer.android.com/google/play/billing/release-notes
+  // BillingManager 已适配 9.x API；lollipop 用 8.0.0（9.1.0 需 minSdk 23）。
+  sinceLollipopImplementation(
+    libs.google.play.billing.lollipop,
+    libs.google.play.billing.latest
+  )
   // The Checker Framework: https://checkerframework.org/CHANGELOG.md
   compileOnly(libs.annotations.checkerframework)
   // OkHttp: https://github.com/square/okhttp/blob/master/CHANGELOG.md
