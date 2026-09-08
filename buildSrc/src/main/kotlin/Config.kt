@@ -20,6 +20,9 @@ import java.util.*
 object Config {
   const val MIN_SDK_VERSION = 16
   const val MIN_SDK_VERSION_HUAWEI = 17
+
+  // FIXME(ndK): As of 16.08.2025, NDK team didn't release an update for r23's c++_shared.so with 16 KB ELF alignment
+  const val SHARED_STL = false
   val JAVA_VERSION = org.gradle.api.JavaVersion.VERSION_21
   val ANDROIDX_MEDIA_EXTENSIONS = arrayOf(
     "decoder_ffmpeg",

@@ -19,13 +19,6 @@ plugins {
 
 val config = tgxConfig.config.get()
 val generateBaselineProfile = tgxConfig.generateBaselineProfile.get()
-val useLegacyNdk = tgxConfig.useLegacyNdk.get()
-val appliedNdkVersion = if (useLegacyNdk) {
-  config.build.legacyNdkVersion
-} else {
-  config.build.primaryNdkVersion
-}
-val ndkMinSdkVersion = appliedNdkVersion.ndkVersionToMinSdk()
 
 val generateThemes = tasks.register<GenerateThemesTask>("generateThemes") {
   group = "Setup"
@@ -320,7 +313,7 @@ android {
     resValue("string", "content_authority", "${config.applicationId}.sync.provider")
 
     buildConfigString("PROJECT_NAME", config.applicationName)
-    buildConfigBool("SHARED_STL", ndkVersion.ndkVersionMajor() >= 27)
+    buildConfigBool("SHARED_STL", Config.SHARED_STL)
     buildConfigString("SAFETYNET_API_KEY", config.safetyNetToken)
 
     buildConfigString("DOWNLOAD_URL", config.appDownloadUrl)
@@ -481,9 +474,7 @@ android {
   }
 
   flavorDimensions += arrayOf("SDK", "ABI")
-  androidComponents.disableRudimentaryVariants { sdkVariant, abiVariant ->
-    maxOf(sdkVariant.minSdk, abiVariant.minSdk) >= ndkMinSdkVersion
-  }
+  androidComponents.disableRudimentaryVariants()
   productFlavors {
     Sdk.VARIANTS.forEach { (sdkIndex, variant) ->
       create(variant.flavor) {
@@ -499,8 +490,7 @@ android {
 
         val selectedMinSdk = maxOf(
           variant.minSdk,
-          Config.MIN_SDK_VERSION_HUAWEI.takeIf { config.isHuaweiBuild } ?: 0,
-          ndkMinSdkVersion
+          Config.MIN_SDK_VERSION_HUAWEI.takeIf { config.isHuaweiBuild } ?: 0
         )
         minSdk = selectedMinSdk
         // NDK by SDK flavor (not ABI): the legacy line needs the legacy NDK on
@@ -534,7 +524,7 @@ android {
           targets += arrayOf("tgxjni", "tgcallsjni")
           arguments(
             "-DANDROID_PLATFORM=android-${selectedMinSdk}",
-            "-DANDROID_STL=${if (appliedNdkVersion.ndkVersionMajor() >= 27) "c++_shared" else "c++_static"}",
+            "-DANDROID_STL=${if (Config.SHARED_STL) "c++_shared" else "c++_static"}",
             "-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
             "-DCMAKE_SKIP_RPATH=ON",
             "-DCMAKE_C_VISIBILITY_PRESET=hidden",
@@ -1057,12 +1047,11 @@ dependencies {
   sinceMarshmallowImplementation(libs.androidx.media.inspector.latest)
   // Play In-App Updates: https://developer.android.com/reference/com/google/android/play/core/release-notes-in_app_updates
   implementation(libs.google.play.app.update)
-  // Play Billing: https://developer.android.com/google/play/billing/release-notes
-  // BillingManager 已适配 9.x API；lollipop 用 8.0.0（9.1.0 需 minSdk 23）。
-  sinceLollipopImplementation(
-    libs.google.play.billing.lollipop,
-    libs.google.play.billing.latest
-  )
+  // Google Play Billing: https://developer.android.com/google/play/billing/release-notes
+  // BillingManager 对所有 flavor 无条件编译，且代码面向 7.x API；9.x 的
+  // per-flavor 拆分（lollipop=8.0.0/latest=9.1.0）会让 legacy flavor 缺依赖，
+  // 需要 BillingManager 按 flavor 拆源集才能升级，暂保持 7.1.1。
+  implementation(libs.google.play.billing)
   // The Checker Framework: https://checkerframework.org/CHANGELOG.md
   compileOnly(libs.annotations.checkerframework)
   // OkHttp: https://github.com/square/okhttp/blob/master/CHANGELOG.md

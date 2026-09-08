@@ -27,9 +27,7 @@ import com.android.billingclient.api.BillingResult;
 import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.PurchasesUpdatedListener;
-import com.android.billingclient.api.PendingPurchasesParams;
 import com.android.billingclient.api.QueryProductDetailsParams;
-import com.android.billingclient.api.QueryProductDetailsResult;
 import com.android.billingclient.api.QueryPurchasesParams;
 
 import org.drinkless.tdlib.TdApi;
@@ -99,7 +97,7 @@ public class BillingManager implements PurchasesUpdatedListener, BillingClientSt
     this.connectionListeners = new ArrayList<>();
 
     this.billingClient = BillingClient.newBuilder(context)
-      .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+      .enablePendingPurchases()
       .setListener(this)
       .build();
   }
@@ -220,9 +218,9 @@ public class BillingManager implements PurchasesUpdatedListener, BillingClientSt
       .setProductList(Collections.singletonList(product))
       .build();
 
-    billingClient.queryProductDetailsAsync(params, (billingResult, result) -> {
+    billingClient.queryProductDetailsAsync(params, (billingResult, productDetailsList) -> {
       if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
-        for (ProductDetails details : result.getProductDetailsList()) {
+        for (ProductDetails details : productDetailsList) {
           if (BillingConfig.PREMIUM_PRODUCT_ID.equals(details.getProductId())) {
             premiumProductDetails = details;
             if (BillingConfig.DEBUG_BILLING) {
