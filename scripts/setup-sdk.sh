@@ -24,7 +24,6 @@ COMPILE_SDK_VERSION=$(read-property.sh version.properties version.sdk_compile)
 SDK_PACKAGE=$(read-property.sh version.properties version.sdk_package)
 CMAKE_VERSION=$(read-property.sh version.properties version.cmake)
 ANDROID_NDK_VERSION_PRIMARY=$(read-property.sh version.properties version.ndk_primary)
-ANDROID_NDK_VERSION_LEGACY=$(read-property.sh version.properties version.ndk_legacy)
 
 yes | "$ANDROID_SDK_ROOT"/cmdline-tools/latest/bin/sdkmanager --licenses
 yes | "$ANDROID_SDK_ROOT"/cmdline-tools/latest/bin/sdkmanager --update
@@ -32,12 +31,10 @@ yes | "$ANDROID_SDK_ROOT"/cmdline-tools/latest/bin/sdkmanager --install \
   "platforms;$SDK_PACKAGE" \
   "build-tools;$BUILD_TOOLS_VERSION" \
   "ndk;$ANDROID_NDK_VERSION_PRIMARY" \
-  "ndk;$ANDROID_NDK_VERSION_LEGACY" \
   "cmake;$CMAKE_VERSION"
 
 test -d "$ANDROID_SDK_ROOT" || (echo "ANDROID_SDK_ROOT ($ANDROID_SDK_ROOT) not found!" && exit 1)
 test -d "$ANDROID_SDK_ROOT/ndk/$ANDROID_NDK_VERSION_PRIMARY" || (echo "ANDROID_NDK ($ANDROID_NDK_VERSION_PRIMARY) not found!" && exit 1)
-test -d "$ANDROID_SDK_ROOT/ndk/$ANDROID_NDK_VERSION_LEGACY" || (echo "ANDROID_NDK ($ANDROID_NDK_VERSION_LEGACY) not found!" && exit 1)
 
 echo "SDK setup is now complete!"
-echo "build-tools: ${BUILD_TOOLS_VERSION}, ndk_primary: ${ANDROID_NDK_VERSION_PRIMARY}, ndk_legacy: ${ANDROID_NDK_VERSION_LEGACY}"
+echo "build-tools: ${BUILD_TOOLS_VERSION}, ndk: ${ANDROID_NDK_VERSION_PRIMARY}"
