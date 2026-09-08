@@ -27,13 +27,6 @@ open class ModulePlugin : Plugin<Project> {
     } catch (_: Exception) {
       null
     }
-    val useLegacyNdk = try {
-      project.extensions.getByType<AppConfigurationExtension>().useLegacyNdk.get()
-    } catch (_: Exception) {
-      project.providers.gradleProperty("useLegacyNdk").map {
-        it.toBoolean()
-      }.getOrElse(false)
-    }
     val build by lazy {
       config?.build ?:
       project.providers.of(AppBuildVersionSource::class) {
@@ -83,11 +76,7 @@ open class ModulePlugin : Plugin<Project> {
       when (this) {
         is LibraryExtension -> {
           buildToolsVersion = build.buildToolsVersion
-          ndkVersion = if (useLegacyNdk) {
-            build.legacyNdkVersion
-          } else {
-            build.primaryNdkVersion
-          }
+          ndkVersion = build.primaryNdkVersion
           compileSdk {
             version = release(build.compileSdkVersion)
           }
@@ -148,11 +137,7 @@ open class ModulePlugin : Plugin<Project> {
 
         is ApplicationExtension -> {
           buildToolsVersion = build.buildToolsVersion
-          ndkVersion = if (useLegacyNdk) {
-            build.primaryNdkVersion
-          } else {
-            build.legacyNdkVersion
-          }
+          ndkVersion = build.primaryNdkVersion
           compileSdk {
             version = release(build.compileSdkVersion)
           }
@@ -243,11 +228,7 @@ open class ModulePlugin : Plugin<Project> {
 
         is TestExtension -> {
           buildToolsVersion = build.buildToolsVersion
-          ndkVersion = if (useLegacyNdk) {
-            build.legacyNdkVersion
-          } else {
-            build.primaryNdkVersion
-          }
+          ndkVersion = build.primaryNdkVersion
           compileSdk {
             version = release(build.compileSdkVersion)
           }

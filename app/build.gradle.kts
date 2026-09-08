@@ -173,10 +173,7 @@ val buildLibvpxTasks = Sdk.VARIANTS.values.flatMap { sdkVariant ->
       // System
       sdkDir.set(File(config.sdkDir))
       // sdkDir.fileValue(File(config.sdkDir))
-      ndkVersion.set(
-        if (sdkVariant.minSdk >= 21) config.build.primaryNdkVersion
-        else config.build.legacyNdkVersion
-      )
+      ndkVersion.set(config.build.primaryNdkVersion)
       hostTag.set(findHostTag())
       // Input
       inputDir.set(layout.projectDirectory.dir(
@@ -225,10 +222,7 @@ val buildFfmpegTasks = Sdk.VARIANTS.values.flatMap { sdkVariant ->
       description = "Builds FFmpeg for ${sdkVariant.flavor}, $abiVariant flavor"
       // System
       sdkDir.fileValue(File(config.sdkDir))
-      ndkVersion.set(
-        if (sdkVariant.minSdk >= 21) config.build.primaryNdkVersion
-        else config.build.legacyNdkVersion
-      )
+      ndkVersion.set(config.build.primaryNdkVersion)
       hostTag.set(findHostTag())
       // Input
       inputDir.set(layout.projectDirectory.dir(
@@ -488,27 +482,12 @@ android {
           buildConfigBool("${subVariant.flavor.uppercase()}_FLAVOR", sdkIndex == subSdkIndex)
         }
 
-        val selectedMinSdk = maxOf(
-          variant.minSdk,
-          Config.MIN_SDK_VERSION_HUAWEI.takeIf { config.isHuaweiBuild } ?: 0
-        )
+        val selectedMinSdk = variant.minSdk
         minSdk = selectedMinSdk
-        // NDK by SDK flavor (not ABI): the legacy line needs the legacy NDK on
-        // every ABI (NDK 27 dropped API<21 wrappers), while API 21+ flavors can
-        // use the primary NDK for all ABIs (27.3 ships prebuilds for all four).
-        ndkVersion = if (selectedMinSdk >= 21) {
-          config.build.primaryNdkVersion
-        } else {
-          config.build.legacyNdkVersion
-        }
-        if (selectedMinSdk < 21) {
-          proguardFile("proguard-r8-bug-android-4.x-workaround.pro")
-        }
-
-        if (selectedMinSdk > Sdk.VARIANTS[Sdk.LEGACY]!!.minSdk) {
-          lint {
-            disable += "ObsoleteSdkInt"
-          }
+        // All flavors are API 21+ so the primary NDK (r27) covers everything.
+        ndkVersion = config.build.primaryNdkVersion
+        lint {
+          disable += "ObsoleteSdkInt"
         }
 
         val flags = listOf(
@@ -803,11 +782,9 @@ android {
         val root = project.rootDir.absoluteFile
         val flatCandidate = File(root, "tdlib/openssl/$openSslAbi/include/openssl/opensslv.h")
         val primaryCandidate = File(root, "tdlib/openssl/${config.build.primaryNdkVersion}/$openSslAbi/include/openssl/opensslv.h")
-        val legacyCandidate = File(root, "tdlib/openssl/${config.build.legacyNdkVersion}/$openSslAbi/include/openssl/opensslv.h")
         val openSslVersionFile = when {
           flatCandidate.isFile -> flatCandidate
           primaryCandidate.isFile -> primaryCandidate
-          legacyCandidate.isFile -> legacyCandidate
           else -> flatCandidate // let the reader produce a diagnosable error
         }
         openSslVersionFile.bufferedReader().use { reader ->
@@ -891,7 +868,6 @@ dependencies {
     libs.androidx.tracing.lollipop,
     libs.androidx.tracing.latest
   )
-  legacyImplementation(libs.androidx.multidex)
   implementation(project(":extension:${config.extension}"))
   // TDLib: https://github.com/tdlib/td/blob/master/CHANGELOG.md
   implementation(project(":tdlib"))
@@ -1047,11 +1023,13 @@ dependencies {
   sinceMarshmallowImplementation(libs.androidx.media.inspector.latest)
   // Play In-App Updates: https://developer.android.com/reference/com/google/android/play/core/release-notes-in_app_updates
   implementation(libs.google.play.app.update)
-  // Google Play Billing: https://developer.android.com/google/play/billing/release-notes
-  // BillingManager 对所有 flavor 无条件编译，且代码面向 7.x API；9.x 的
-  // per-flavor 拆分（lollipop=8.0.0/latest=9.1.0）会让 legacy flavor 缺依赖，
-  // 需要 BillingManager 按 flavor 拆源集才能升级，暂保持 7.1.1。
-  implementation(libs.google.play.billing)
+  // Play Billing: https://developer.android.com/google/play/billing/release-notes
+  // BillingManager 已适配 9.x API；legacy flavor 移除后所有 flavor 都有依赖，
+  // lollipop 用 8.0.0（9.1.0 需 minSdk 23）。
+  sinceLollipopImplementation(
+    libs.google.play.billing.lollipop,
+    libs.google.play.billing.latest
+  )
   // The Checker Framework: https://checkerframework.org/CHANGELOG.md
   compileOnly(libs.annotations.checkerframework)
   // OkHttp: https://github.com/square/okhttp/blob/master/CHANGELOG.md
@@ -1067,8 +1045,6 @@ dependencies {
   preMarshmallowImplementation(libs.relinker)
   // Konfetti: https://github.com/DanielMartinus/Konfetti/blob/main/README.md
   implementation(libs.konfetti)
-  // Transcoder: https://github.com/natario1/Transcoder/blob/master/docs/_about/changelog.md
-  legacyImplementation(libs.transcoder)
   // https://github.com/mikereedell/sunrisesunsetlib-java
   implementation(libs.sunriseSunsetCalculator)
 

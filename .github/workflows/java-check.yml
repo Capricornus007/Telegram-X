@@ -80,10 +80,9 @@ jobs:
       # metadata 2.4.0 (written by the previous in-process run, whose cache setup-java restores)
       # while :app compiled fresh at 2.2.0. Every error in that build was a downstream
       # "Unresolved reference" for a class the app could no longer read.
-      - name: Compile Java only (no native) — both SDK flavors
+      - name: Compile Java only (no native) — shipped flavor (latest arm64)
         run: |
           ./gradlew :app:compileLatestArm64DebugJavaWithJavac \
-                    :app:compileLegacyArm32DebugJavaWithJavac \
             --stacktrace --no-daemon --max-workers=2 \
             -Dorg.gradle.jvmargs="-Xmx3g -XX:+UseG1GC" \
             -Pkotlin.compiler.execution.strategy=daemon \

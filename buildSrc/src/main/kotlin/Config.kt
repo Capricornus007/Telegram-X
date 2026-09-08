@@ -18,8 +18,7 @@ import java.io.File
 import java.util.*
 
 object Config {
-  const val MIN_SDK_VERSION = 16
-  const val MIN_SDK_VERSION_HUAWEI = 17
+  const val MIN_SDK_VERSION = 21
 
   // FIXME(ndK): As of 16.08.2025, NDK team didn't release an update for r23's c++_shared.so with 16 KB ELF alignment
   const val SHARED_STL = false
@@ -62,7 +61,6 @@ data class BuildVersions(
   val compileSdkVersion: Int,
   val targetSdkVersion: Int,
   val buildToolsVersion: String,
-  val legacyNdkVersion: String,
   val primaryNdkVersion: String
 ) {
   constructor(version: Properties) : this(
@@ -72,8 +70,6 @@ data class BuildVersions(
       version.getIntOrThrow("version.sdk_target"),
     buildToolsVersion =
       version.getOrThrow("version.build_tools"),
-    legacyNdkVersion =
-      version.getOrThrow("version.ndk_legacy"),
     primaryNdkVersion =
       version.getOrThrow("version.ndk_primary")
   )
@@ -197,28 +193,16 @@ data class SdkVariant(
     flavor == "marshmallow"
   val isLollipop: Boolean =
     flavor == "lollipop"
-  val isLegacy: Boolean =
-    flavor == "legacy"
-
   val jetpackMediaFlavor: String =
     flavor.takeIf { !isMarshmallow } ?: "latest"
-
-  val usesLegacyNdk: Boolean =
-    isLegacy
 }
 
 object Sdk {
-  const val LEGACY = 0
   const val LOLLIPOP = 1
   const val MARSHMALLOW = 2
   const val LATEST = 3
 
   val VARIANTS = mapOf(
-    Pair(LEGACY, SdkVariant(
-      flavor = "legacy",
-      minSdk = 16,
-      maxSdk = 20
-    )),
     Pair(LOLLIPOP, SdkVariant(
       flavor = "lollipop",
       minSdk = 21,
