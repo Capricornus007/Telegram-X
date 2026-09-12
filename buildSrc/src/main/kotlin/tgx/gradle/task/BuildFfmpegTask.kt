@@ -24,6 +24,7 @@ abstract class BuildFfmpegTask : BuildNativeLibraryTask() {
     val abi = this.abi.get()
     val hostTag = this.hostTag.get()
     val ndkVersion = this.ndkVersion.get()
+    val ndkVersionMajor = ndkVersion.ndkVersionMajor()
 
     val ndk = requireDir(
       sdkDir.get().asFile.resolve("ndk/$ndkVersion")
@@ -63,6 +64,12 @@ abstract class BuildFfmpegTask : BuildNativeLibraryTask() {
         libvpx.resolve("include")
       ).absolutePath}"
     )
+    if (ndkVersionMajor >= 27) {
+      cFlags.addAll(arrayOf(
+        "-Wno-int-conversion",
+        "-Wno-incompatible-function-pointer-types"
+      ))
+    }
     val ldFlags = mutableListOf(
       "-L${requireDir(
         libvpx.resolve("lib")
@@ -279,6 +286,7 @@ abstract class BuildFfmpegTask : BuildNativeLibraryTask() {
         "--enable-pthreads",
 
         "--enable-hwaccels",
+        "--disable-vulkan",
         "--enable-protocol=file",
         *arrayOf(
           "scale",

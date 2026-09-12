@@ -4,6 +4,8 @@ import androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension
 import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.BuildConfigField
 import com.android.build.api.variant.impl.VariantOutputImpl
+import com.android.build.gradle.tasks.ExternalNativeBuildJsonTask
+import com.android.build.gradle.tasks.ExternalNativeBuildTask
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
 import tgx.gradle.*
 import tgx.gradle.source.GitVersionSource
@@ -19,6 +21,13 @@ plugins {
 
 val config = tgxConfig.config.get()
 val generateBaselineProfile = tgxConfig.generateBaselineProfile.get()
+val useLegacyNdk = tgxConfig.useLegacyNdk.get()
+val appliedNdkVersion = if (useLegacyNdk) {
+  config.build.legacyNdkVersion
+} else {
+  config.build.primaryNdkVersion
+}
+val ndkMinSdkVersion = appliedNdkVersion.ndkVersionToMinSdk()
 
 val generateThemes = tasks.register<GenerateThemesTask>("generateThemes") {
   group = "Setup"
@@ -259,6 +268,9 @@ val buildFfmpegTask = tasks.register("buildFfmpeg") {
   dependsOn(buildFfmpegTasks.values)
 }
 
+val buildNativeTasks = mutableMapOf<String, TaskProvider<*>>()
+
+
 //noinspection WrongGradleMethod
 android {
   namespace = "org.thunderdog.challegram"
@@ -307,7 +319,7 @@ android {
     resValue("string", "content_authority", "${config.applicationId}.sync.provider")
 
     buildConfigString("PROJECT_NAME", config.applicationName)
-    buildConfigBool("SHARED_STL", Config.SHARED_STL)
+    buildConfigBool("SHARED_STL", ndkVersion.ndkVersionMajor() >= 27)
     buildConfigString("SAFETYNET_API_KEY", config.safetyNetToken)
 
     buildConfigString("DOWNLOAD_URL", config.appDownloadUrl)
@@ -468,7 +480,10 @@ android {
   }
 
   flavorDimensions += arrayOf("SDK", "ABI")
-  androidComponents.disableRudimentaryVariants()
+  androidComponents.disableRudimentaryVariants { sdkVariant, abiVariant ->
+    maxOf(sdkVariant.minSdk, abiVariant.minSdk) >= ndkMinSdkVersion &&
+    (sdkVariant.usesLegacyNdk == useLegacyNdk || config.build.primaryNdkVersion == config.build.legacyNdkVersion)
+  }
   productFlavors {
     Sdk.VARIANTS.forEach { (sdkIndex, variant) ->
       create(variant.flavor) {
@@ -482,7 +497,11 @@ android {
           buildConfigBool("${subVariant.flavor.uppercase()}_FLAVOR", sdkIndex == subSdkIndex)
         }
 
-        val selectedMinSdk = variant.minSdk
+        val selectedMinSdk = maxOf(
+          variant.minSdk,
+          Config.MIN_SDK_VERSION_HUAWEI.takeIf { config.isHuaweiBuild } ?: 0,
+          ndkMinSdkVersion
+        )
         minSdk = selectedMinSdk
         // All flavors are API 21+ so the primary NDK (r27) covers everything.
         ndkVersion = config.build.primaryNdkVersion
@@ -503,7 +522,7 @@ android {
           targets += arrayOf("tgxjni", "tgcallsjni")
           arguments(
             "-DANDROID_PLATFORM=android-${selectedMinSdk}",
-            "-DANDROID_STL=${if (Config.SHARED_STL) "c++_shared" else "c++_static"}",
+            "-DANDROID_STL=${if (appliedNdkVersion.ndkVersionMajor() >= 27) "c++_shared" else "c++_static"}",
             "-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
             "-DCMAKE_SKIP_RPATH=ON",
             "-DCMAKE_C_VISIBILITY_PRESET=hidden",
@@ -600,6 +619,7 @@ android {
           buildConfigBool("${subVariant.flavor.uppercase()}_FLAVOR", abiIndex == subAbiIndex)
         }
 
+        ndkVersion = appliedNdkVersion
         buildConfigString("NDK_VERSION", ndkVersion)
         buildConfigBool("WEBP_ENABLED", true) // variant.minSdk < 19
         if (ndk.abiFilters.isNotEmpty())
@@ -668,6 +688,7 @@ android {
         dependsOn(*nativeBuildTasks.toTypedArray())
       }
       variant.lifecycleTasks.registerPreBuild(buildNativeTask)
+      buildNativeTasks["${sdkVariant.flavor}${abiVariant.flavor.uppercaseFirstChar()}"] = buildNativeTask
 
       variant.sources.res?.apply {
         addGeneratedSourceDirectory(
@@ -861,6 +882,14 @@ if (generateBaselineProfile) {
   }
 }
 
+afterEvaluate {
+  tasks.withType<ExternalNativeBuildTask>().configureEach {
+    val variantName = variantName.replace(Regex("(Release|Debug)$", RegexOption.IGNORE_CASE), "")
+    val buildNativeTask = buildNativeTasks[variantName]!!
+    dependsOn(buildNativeTask)
+  }
+}
+
 dependencies {
   sinceNougatImplementation(libs.androidx.profileinstaller)
   flavorImplementation(
@@ -1024,8 +1053,6 @@ dependencies {
   // Play In-App Updates: https://developer.android.com/reference/com/google/android/play/core/release-notes-in_app_updates
   implementation(libs.google.play.app.update)
   // Play Billing: https://developer.android.com/google/play/billing/release-notes
-  // BillingManager 已适配 9.x API；legacy flavor 移除后所有 flavor 都有依赖，
-  // lollipop 用 8.0.0（9.1.0 需 minSdk 23）。
   sinceLollipopImplementation(
     libs.google.play.billing.lollipop,
     libs.google.play.billing.latest

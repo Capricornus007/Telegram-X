@@ -230,6 +230,9 @@ google-play-billing-ktx = { module = "com.android.billingclient:billing-ktx", ve
 google-play-billing-latest = { module = "com.android.billingclient:billing", version.ref = "google-play-billing-latest" }
 google-play-billing-lollipop = { module = "com.android.billingclient:billing", version.ref = "google-play-billing-lollipop" }
 
+google-play-billing-latest = { module = "com.android.billingclient:billing-ktx", version.ref = "google-play-billing-latest" }
+google-play-billing-lollipop = { module = "com.android.billingclient:billing-ktx", version.ref = "google-play-billing-lollipop" }
+
 google-play-integrity-legacy = { module = "com.google.android.play:integrity", version.ref = "google-play-integrity-legacy" }
 google-play-integrity-lollipop = { module = "com.google.android.play:integrity", version.ref = "google-play-integrity-lollipop" }
 google-play-integrity-latest = { module = "com.google.android.play:integrity", version.ref = "google-play-integrity-latest" }
