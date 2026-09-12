@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.konan.file.File
 import tgx.gradle.createEmptyDir
 import tgx.gradle.requireDir
 import tgx.gradle.requireFile
+import tgx.gradle.ndkVersionMajor
 
 private const val TAG = "FFmpeg"
 

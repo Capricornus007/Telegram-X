@@ -61,6 +61,7 @@ data class BuildVersions(
   val compileSdkVersion: Int,
   val targetSdkVersion: Int,
   val buildToolsVersion: String,
+  val legacyNdkVersion: String,
   val primaryNdkVersion: String
 ) {
   constructor(version: Properties) : this(
@@ -70,6 +71,8 @@ data class BuildVersions(
       version.getIntOrThrow("version.sdk_target"),
     buildToolsVersion =
       version.getOrThrow("version.build_tools"),
+    legacyNdkVersion =
+      version.getOrThrow("version.ndk_legacy"),
     primaryNdkVersion =
       version.getOrThrow("version.ndk_primary")
   )
